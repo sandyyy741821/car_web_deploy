@@ -35,7 +35,8 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@v4
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: http://${{ secrets.EC2_PUBLIC_IP }}:9000  
+          SONAR_HOST_URL: http://${{ secrets.EC2_PUBLIC_IP }}:9000
+
 
       - name: Wait for SonarQube Analysis
         run: sleep 30
