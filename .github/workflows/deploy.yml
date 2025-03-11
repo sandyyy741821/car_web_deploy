@@ -1,0 +1,22 @@
+stages:
+  - lint
+  - analyze
+  - deploy
+
+lint:
+  stage: lint
+  script:
+    - npm install
+    - npx eslint . --ext .js
+
+analyze:
+  stage: analyze
+  script:
+    - sonar-scanner -Dsonar.projectKey=car_website -Dsonar.sources=. -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.login=$SONAR_TOKEN
+
+deploy:
+  stage: deploy
+  script:
+    - aws s3 sync ./website s3://car-website-bucket --delete
+  only:
+    - main
