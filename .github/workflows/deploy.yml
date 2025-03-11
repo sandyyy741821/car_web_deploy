@@ -17,15 +17,16 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.EC2_PUBLIC_IP }} >> ~/.ssh/known_hosts
 
       - name: Connect to EC2 & Start SonarQube
         run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ec2-user@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
+          ssh -i ~/.ssh/id_rsa ec2-user@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
           cd /opt/sonarqube/bin/linux-x86-64
           ./sonar.sh start
+          sleep 10
+          ./sonar.sh status
           EOF
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Wait for SonarQube to Start
         run: sleep 60      
@@ -35,9 +36,16 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: http://${{ secrets.EC2_PUBLIC_IP }}:9000  
-       
+
       - name: Wait for SonarQube Analysis
         run: sleep 30
+
+      - name: SonarQube Quality Gate Check
+        uses: SonarSource/sonarqube-quality-gate-action@v1
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: http://${{ secrets.EC2_PUBLIC_IP }}:9000
 
       - name: Fetch SonarQube Issues
         run: |
@@ -53,16 +61,14 @@ jobs:
 
       - name: Stop SonarQube on EC2
         run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ec2-user@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
+          ssh -i ~/.ssh/id_rsa ec2-user@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
           cd /opt/sonarqube/bin/linux-x86-64
           ./sonar.sh stop
           EOF
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}   
-
 
   deploy:
     runs-on: ubuntu-latest
+    needs: sonar_scan  # Ensures SonarQube job passes first
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -73,6 +79,13 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Ensure Website Directory Exists
+        run: |
+          if [ ! -d "./website" ]; then
+            echo "Error: 'website' directory not found!"
+            exit 1
+          fi
 
       - name: Deploy to S3
         run: aws s3 sync ./website s3://${{ secrets.S3_BUCKET_NAME }} --delete  
