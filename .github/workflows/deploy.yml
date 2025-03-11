@@ -1,57 +1,73 @@
-name: CI/CD Pipeline
+name: CICD_FLOW
 
 on:
   push:
     branches:
-      - main
+      - main  
 
 jobs:
-  lint:
+  sonar_scan:
     runs-on: ubuntu-latest
+   
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      
-      - name: Install dependencies
-        run: npm install
+   
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Run ESLint
-        run: npx eslint . --ext .js
+    - name: Add SSH Key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa    
 
-  analyze:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: Connect to EC2 & Start SonarQube
+      run: |
+        ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ec2-user@${{ secrets.SONAR_HOST_URL }} << 'EOF'
+        cd /opt/sonarqube-10.6.0.92116/bin/linux-x86-64
+        ./sonar.sh start
+        EOF
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Install Java (Required for SonarQube)
-        run: sudo apt update && sudo apt install -y openjdk-17-jdk
+    - name: Wait for 60 seconds
+      run: sleep 60      
 
-      - name: Install Sonar Scanner
-        run: |
-          wget -O sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-7.0.2.4839-linux.zip
-          unzip sonar-scanner.zip
-          sudo mv sonar-scanner-7.0.2.4839-linux /opt/sonar-scanner
-          echo "export PATH=/opt/sonar-scanner/bin:\$PATH" >> ~/.bashrc
-          source ~/.bashrc
+    - name: SonarQube Scan
+      uses: SonarSource/sonarqube-scan-action@v4
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_HOST_URL: http://${{ secrets.SONAR_HOST_URL }}:9000  
+       
+    - name: Wait for 30 seconds
+      run: sleep 30
+       
+    - name: Fetch SonarQube Issues
+      run: |
+        curl -u ${{ secrets.SONAR_TOKEN }}: \
+        "http://${{ secrets.SONAR_HOST_URL }}:9000/api/issues/search?componentKeys=CICD&types=BUG,VULNERABILITY,CODE_SMELL" \
+        | jq '.' > sonarqube_issues.json
 
-      - name: Verify Sonar Scanner Installation
-        run: sonar-scanner --version
+    - name: Upload SonarQube Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: sonarqube-report
+        path: sonarqube_issues.json        
 
-      - name: Run SonarQube Analysis
-        run: |
-          sonar-scanner \
-            -Dsonar.projectKey=car_web_deployment \
-            -Dsonar.sources=. \
-            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
-            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+    - name: Connect to EC2 & Stop SonarQube
+      run: |
+        ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ec2-user@${{ secrets.SONAR_HOST_URL }} << 'EOF'
+        cd /opt/sonarqube-10.6.0.92116/bin/linux-x86-64
+        ./sonar.sh stop
+        EOF
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}   
 
   deploy:
     runs-on: ubuntu-latest
-    needs: [lint, analyze]
+    needs: [sonar_scan]  
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
