@@ -3,11 +3,10 @@ name: CI/CD Pipeline
 on:
   push:
     branches:
-      - main  # Run pipeline when code is pushed to the main branch
+      - main
 
 jobs:
   lint:
-    name: Run ESLint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -20,23 +19,24 @@ jobs:
         run: npx eslint . --ext .js
 
   analyze:
-    name: Run SonarQube Analysis
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v3
+
+      - name: Install Java (Required for SonarQube)
+        run: sudo apt update && sudo apt install -y openjdk-17-jdk
 
       - name: Install Sonar Scanner
         run: |
-          sudo apt update
-          sudo apt install -y unzip
-          wget -O sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
+          wget -O sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-7.0.2.4839-linux.zip
           unzip sonar-scanner.zip
-          sudo mv sonar-scanner-5.0.1.3006-linux /opt/sonar-scanner
-          echo "export PATH=/opt/sonar-scanner/bin:$PATH" >> $GITHUB_ENV
+          sudo mv sonar-scanner-7.0.2.4839-linux /opt/sonar-scanner
+          echo "export PATH=/opt/sonar-scanner/bin:\$PATH" >> ~/.bashrc
+          source ~/.bashrc
 
       - name: Verify Sonar Scanner Installation
-        run: sonar-scanner --version  # Check if sonar-scanner is installed correctly
+        run: sonar-scanner --version
 
       - name: Run SonarQube Analysis
         run: |
@@ -47,9 +47,8 @@ jobs:
             -Dsonar.login=${{ secrets.SONAR_TOKEN }}
 
   deploy:
-    name: Deploy to S3
     runs-on: ubuntu-latest
-    needs: [lint, analyze]  # Run deployment only if lint & analyze succeed
+    needs: [lint, analyze]
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
