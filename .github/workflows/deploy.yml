@@ -23,7 +23,7 @@ jobs:
     - name: Connect to EC2 & Start SonarQube
       run: |
         ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ec2-user@${{ secrets.SONAR_HOST_URL }} << 'EOF'
-        cd /opt/sonarqube-10.6.0.92116/bin/linux-x86-64
+        cd /opt/sonarqube/bin/linux-x86-64
         ./sonar.sh start
         EOF
       env:
