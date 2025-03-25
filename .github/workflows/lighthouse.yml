@@ -12,16 +12,16 @@ jobs:
   lighthouse:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2  # Corrected version
-      - name: Use Node.js 10.x
-        uses: actions/setup-node@v1  # Corrected version
+      - uses: actions/checkout@v2
+      - name: Use Node.js 18.x
+        uses: actions/setup-node@v2
         with:
-          node-version: 10.x
-      - name: npm install and build
+          node-version: 18.x  # Update to a compatible Node.js version
+      - name: Install dependencies and build
         run: |
           yarn
           npm run build
-      - name: run lighthouse CI
+      - name: Run Lighthouse CI
         run: |
           npm install -g @lhci/cli@0.3.x
           lhci autorun --upload.target=temporary-public-storage || echo "LHCI Failed!"
