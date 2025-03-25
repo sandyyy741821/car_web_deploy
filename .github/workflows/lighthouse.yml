@@ -1,27 +1,26 @@
 name: Lighthouse CI
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+  workflow_call:
 
 jobs:
-  lighthouse:
+  lighthouse_audit:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v2
-      - name: Use Node.js 18.x
-        uses: actions/setup-node@v2
-        with:
-          node-version: 18.x  # Update to a compatible Node.js version
-      - name: Install dependencies and build
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Install Lighthouse CI
+        run: npm install -g @lhci/cli
+
+      - name: Run Lighthouse Audit
+        run: lhci autorun --collect.staticDistDir=./
+
+      - name: Upload Lighthouse Report to Public Storage
         run: |
-          yarn
-          npm run build
-      - name: Run Lighthouse CI
+          lhci upload --target=temporary-public-storage
+
+      - name: Output Lighthouse Report URL
         run: |
-          npm install -g @lhci/cli@0.3.x
-          lhci autorun --upload.target=temporary-public-storage || echo "LHCI Failed!"
+          echo "Lighthouse Report available at: https://storage.googleapis.com/lighthouse-ci-temp/index.html"
