@@ -23,3 +23,9 @@
   },
   "description": ""
 }
+{
+  "scripts": {
+    "build": "webpack --mode production",
+    "start": "node server.js"
+  }
+}
