@@ -35,11 +35,8 @@ jobs:
           npm install -g @lhci/cli
           npm install
 
-      - name: Build React App
-        run: |
-          cd ${{ env.PROJECT_DIR }}
-          export NODE_OPTIONS=--openssl-legacy-provider
-          SKIP_PREFLIGHT_CHECK=true npm run build
+      - name: Start React App
+        run: npm start
 
       - name: Create Lighthouse CI Config
         run: |
