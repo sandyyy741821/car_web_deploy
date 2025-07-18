@@ -1,3 +1,0 @@
-[submodule "car_deploy_lighthouse/car_deploy_lighthouse/car_web_deploy"]
-	path = car_deploy_lighthouse/car_deploy_lighthouse/car_web_deploy
-	url = https://github.com/sandyyy741821/car_web_deploy
